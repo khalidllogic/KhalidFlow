@@ -5,7 +5,7 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from googleapiclient.errors import HttpError
 
-# زيادة وقت انتظار استجابة الخادم إلى 300 ثانية (5 دقائق) لتجاوز تقطعات الشبكة
+# ضبط وقت الانتظار لمنع مشاكل انقطاع الشبكة
 socket.setdefaulttimeout(300)
 
 def get_authenticated_service():
@@ -18,8 +18,7 @@ def get_authenticated_service():
 
 def upload_video_to_youtube(file_path, title, description, category_id="22", privacy_status="private"):
     """
-    رفع الفيديو إلى يوتيوب.
-    privacy_status: 'private', 'public', 'unlisted'
+    رفع الفيديو إلى يوتيوب مع حماية ضد التكرار ومعالجة أخطاء الشبكة.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"ملف الفيديو غير موجود في المسار: {file_path}")
@@ -46,13 +45,23 @@ def upload_video_to_youtube(file_path, title, description, category_id="22", pri
     )
 
     print(f"جاري رفع الفيديو: {title}...")
+    
+    # محاولة رفع آمنة بدون num_retries العشوائي لتجنب التكرار، مع التعامل مع الاستثناءات
     try:
-        # أضفنا num_retries=3 ليحاول 3 مرات تلقائياً في حال انقطاع الشبكة
-        response = request.execute(num_retries=3)
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status:
+                print(f"نسبة الرفع: {int(status.progress() * 100)}%")
+                
         print(f"✅ تم الرفع بنجاح! معرف الفيديو: {response['id']}")
         return response['id']
+        
     except HttpError as e:
         print(f"❌ خطأ من خوادم Google أثناء الرفع: {e}")
+        return None
+    except Exception as e:
+        print(f"❌ حدث خطأ غير متوقع في الشبكة: {e}")
         return None
 
 if __name__ == '__main__':
