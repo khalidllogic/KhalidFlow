@@ -11,3 +11,5 @@ token.json
 # ملفات مؤقتة تنشئها Python
 __pycache__/
 *.pyc
+
+*.mp4

@@ -1,38 +1,58 @@
 import streamlit as st
+import os
+from youtube_uploader import upload_video_to_youtube
 
-# إعداد عنوان الصفحة ورمز التبويب
-st.set_page_config(page_title="KhalidFlow", page_icon="🚀", layout="centered")
+# 1. إعدادات الصفحة الأساسية
+st.set_page_config(page_title="KhalidFlow", page_icon="🌊", layout="centered")
 
-# عنوان التطبيق الرئيسي
-st.title("🚀 KhalidFlow")
-st.subheader("Multi-Platform Video Publisher")
+st.title("🌊 KhalidFlow")
+st.subheader("منصة النشر الموحدة للفيديو (إصدار يوتيوب)")
+st.markdown("---")
 
-st.divider() # خط فاصل
+# 2. واجهة إدخال البيانات
+st.header("1. تفاصيل الفيديو")
+video_title = st.text_input("عنوان الفيديو", placeholder="اكتب عنواناً جذاباً...")
+video_description = st.text_area("وصف الفيديو", placeholder="اكتب وصفاً تفصيلياً...")
+# جعلنا الخيار الافتراضي 'private' لحماية تجاربك
+privacy_status = st.selectbox("حالة الخصوصية", ["private", "unlisted", "public"], index=0) 
 
-# واجهة بسيطة لاختيار الفيديوهات وكتابة التفاصيل (MVP)
-st.write("### 1. تفاصيل الفيديو")
-video_title = st.text_input("عنوان الفيديو (Title)")
-video_desc = st.text_area("وصف الفيديو (Description)")
-uploaded_video = st.file_uploader("اختر ملف الفيديو", type=['mp4', 'mov'])
+st.header("2. رفع الملف")
+uploaded_file = st.file_uploader("اختر ملف الفيديو (MP4)", type=["mp4"])
 
-st.write("### 2. المنصات المستهدفة")
-col1, col2, col3 = st.columns(3)
-with col1:
-    to_youtube = st.checkbox("YouTube Shorts")
-with col2:
-    to_instagram = st.checkbox("Instagram Reels")
-with col3:
-    to_facebook = st.checkbox("Facebook Reels")
+if uploaded_file is not None:
+    st.video(uploaded_file) # معاينة الفيديو قبل الرفع
 
-st.divider()
+st.markdown("---")
 
-# زر النشر (لا يفعل شيئاً الآن)
-if st.button("بدء النشر", type="primary"):
-    if not uploaded_video:
-        st.error("الرجاء اختيار ملف فيديو أولاً.")
-    elif not video_title:
-        st.warning("الرجاء كتابة عنوان للفيديو.")
-    elif not (to_youtube or to_instagram or to_facebook):
-        st.warning("الرجاء اختيار منصة واحدة على الأقل.")
+# 3. زر النشر ومنطق التشغيل
+if st.button("🚀 نشر الفيديو إلى YouTube"):
+    if not video_title:
+        st.error("❌ يرجى كتابة عنوان الفيديو أولاً.")
+    elif uploaded_file is None:
+        st.error("❌ يرجى اختيار ملف الفيديو أولاً.")
     else:
-        st.info("جاري تجهيز النظام للنشر... (لم نبرمج التكامل بعد!)")
+        with st.spinner("جاري معالجة ورفع الفيديو إلى يوتيوب، يرجى الانتظار..."):
+            # هندسة الذاكرة: حفظ الملف المرفوع مؤقتاً ليقرأه YouTube API
+            temp_file_path = f"temp_{uploaded_file.name}"
+            with open(temp_file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            # استدعاء وحدة الرفع (Backend)
+            video_id = upload_video_to_youtube(
+                file_path=temp_file_path,
+                title=video_title,
+                description=video_description,
+                privacy_status=privacy_status
+            )
+            
+            # التنظيف الذاتي: حذف الملف المؤقت بعد إتمام الرفع
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            
+            # عرض النتيجة للمستخدم
+            if video_id:
+                st.success("🎉 تم النشر بنجاح!")
+                st.markdown(f"[🔗 اضغط هنا لمشاهدة الفيديو على YouTube](https://www.youtube.com/watch?v={video_id})")
+                st.balloons()
+            else:
+                st.error("❌ حدث خطأ أثناء الرفع. راجع الـ Terminal للتفاصيل.")
