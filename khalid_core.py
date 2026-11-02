@@ -17,25 +17,26 @@ FB_PAGE_TOKEN = get_secret('FB_PAGE_TOKEN')
 FB_PAGE_ID = get_secret('FB_PAGE_ID')
 
 def upload_to_cloud_buffer(file_path):
-    print("☁️ 1. Uploading video to cloud buffer for Meta (Catbox)...")
-    url = "https://catbox.moe/user/api.php"
-    data = {'reqtype': 'fileupload'}
+    print("☁️ Uploading video to cloud buffer (Tmpfiles)...")
+    url = "https://tmpfiles.org/api/v1/upload"
     try:
         with open(file_path, 'rb') as f:
-            files = {'fileToUpload': f}
-            res = requests.post(url, data=data, files=files)
-            
-        if res.status_code == 200 and "catbox.moe" in res.text:
-            direct_url = res.text.strip()
-            print(f"✅ Cloud link secured: {direct_url}")
-            return direct_url
-        else:
-            print(f"❌ Cloud upload failed: {res.text}")
-            return None
+            res = requests.post(url, files={'file': f})
+        
+        if res.status_code == 200:
+            data = res.json()
+            if data.get('status') == 'success':
+                # استخراج الرابط وتعديله برمجياً ليصبح رابط تحميل مباشر (Direct URL) لميتا
+                original_url = data['data']['url']
+                direct_url = original_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                print(f"✅ Cloud link secured: {direct_url}")
+                return direct_url
+        
+        print(f"❌ Cloud upload failed: {res.text}")
+        return None
     except Exception as e:
         print(f"❌ Cloud connection error: {e}")
         return None
-
 def publish_to_instagram(video_url, caption):
     if not IG_USER_ID or not ACCESS_TOKEN:
         print("❌ Fatal Error: IG_USER_ID or META_ACCESS_TOKEN is missing!")
