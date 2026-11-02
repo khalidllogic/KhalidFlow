@@ -1,6 +1,8 @@
 import os
 import time
 import requests
+import random
+import string
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -17,26 +19,31 @@ FB_PAGE_TOKEN = get_secret('FB_PAGE_TOKEN')
 FB_PAGE_ID = get_secret('FB_PAGE_ID')
 
 def upload_to_cloud_buffer(file_path):
-    print("☁️ Uploading video to cloud buffer (Tmpfiles)...")
-    url = "https://tmpfiles.org/api/v1/upload"
+    print("☁️ Uploading video to true direct host (Filebin)...")
+    
+    # توليد حاوية عشوائية آمنة
+    bin_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    # تنظيف اسم الملف من المسافات
+    filename = os.path.basename(file_path).replace(" ", "_")
+    url = f"https://filebin.net/{bin_id}/{filename}"
+    
     try:
         with open(file_path, 'rb') as f:
-            res = requests.post(url, files={'file': f})
+            # نجبر السيرفر على اعتبار الملف فيديو نقي ليقبله عنكبوت ميتا
+            headers = {"Content-Type": "video/mp4"}
+            res = requests.post(url, data=f, headers=headers)
         
-        if res.status_code == 200:
-            data = res.json()
-            if data.get('status') == 'success':
-                # استخراج الرابط وتعديله برمجياً ليصبح رابط تحميل مباشر (Direct URL) لميتا
-                original_url = data['data']['url']
-                direct_url = original_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-                print(f"✅ Cloud link secured: {direct_url}")
-                return direct_url
-        
-        print(f"❌ Cloud upload failed: {res.text}")
-        return None
+        if res.status_code == 201:
+            direct_url = f"https://filebin.net/{bin_id}/{filename}"
+            print(f"✅ True Direct Cloud link secured: {direct_url}")
+            return direct_url
+        else:
+            print(f"❌ Filebin upload failed: {res.status_code} - {res.text}")
+            return None
     except Exception as e:
         print(f"❌ Cloud connection error: {e}")
         return None
+
 def publish_to_instagram(video_url, caption):
     import streamlit as st
     if not IG_USER_ID or not ACCESS_TOKEN:
