@@ -1,35 +1,46 @@
 import os
 import time
 import requests
+import streamlit as st
 from dotenv import load_dotenv
 
-# Load Environment Variables
+# تحميل المتغيرات المحلية (في اللابتوب)
 load_dotenv()
-ACCESS_TOKEN = os.getenv('META_ACCESS_TOKEN')
-IG_USER_ID = os.getenv('IG_USER_ID')
-FB_PAGE_TOKEN = os.getenv('FB_PAGE_TOKEN')
-FB_PAGE_ID = os.getenv('FB_PAGE_ID')
+
+# هندسة جلب الأسرار: البحث في اللابتوب أولاً، ثم في سحابة Streamlit
+def get_secret(key):
+    return os.getenv(key) or st.secrets.get(key)
+
+ACCESS_TOKEN = get_secret('META_ACCESS_TOKEN')
+IG_USER_ID = get_secret('IG_USER_ID')
+FB_PAGE_TOKEN = get_secret('FB_PAGE_TOKEN')
+FB_PAGE_ID = get_secret('FB_PAGE_ID')
 
 def upload_to_cloud_buffer(file_path):
-    print("☁️ 1. Uploading video to cloud buffer for Meta...")
+    print("☁️ 1. Uploading video to cloud buffer for Meta (Catbox)...")
     url = "https://catbox.moe/user/api.php"
     data = {'reqtype': 'fileupload'}
     try:
         with open(file_path, 'rb') as f:
             files = {'fileToUpload': f}
             res = requests.post(url, data=data, files=files)
+            
         if res.status_code == 200 and "catbox.moe" in res.text:
             direct_url = res.text.strip()
             print(f"✅ Cloud link secured: {direct_url}")
             return direct_url
         else:
-            print("❌ Cloud upload failed:", res.text)
+            print(f"❌ Cloud upload failed: {res.text}")
             return None
     except Exception as e:
         print(f"❌ Cloud connection error: {e}")
         return None
 
 def publish_to_instagram(video_url, caption):
+    if not IG_USER_ID or not ACCESS_TOKEN:
+        print("❌ Fatal Error: IG_USER_ID or META_ACCESS_TOKEN is missing!")
+        return False
+        
     print("🚀 [Instagram] Connecting to Meta API...")
     container_url = f"https://graph.facebook.com/v18.0/{IG_USER_ID}/media"
     payload = {
@@ -42,7 +53,7 @@ def publish_to_instagram(video_url, caption):
     res = requests.post(container_url, data=payload).json()
     
     if 'id' not in res:
-        print("❌ Failed to create container:", res)
+        print(f"❌ Failed to create container: {res}")
         return False
         
     creation_id = res['id']
@@ -56,7 +67,7 @@ def publish_to_instagram(video_url, caption):
         print(f"   - Server status: {status}")
         if status == 'FINISHED': break
         if status == 'ERROR':
-            print("❌ Meta processing error:", status_res)
+            print(f"❌ Meta processing error: {status_res}")
             return False
             
     print("🎉 Sending final publish command to Instagram...")
@@ -69,6 +80,10 @@ def publish_to_instagram(video_url, caption):
     return False
 
 def publish_to_facebook(video_url, description):
+    if not FB_PAGE_ID or not FB_PAGE_TOKEN:
+        print("❌ Fatal Error: FB_PAGE_ID or FB_PAGE_TOKEN is missing!")
+        return False
+        
     print("📘 [Facebook] Connecting to Facebook Graph API...")
     url = f"https://graph.facebook.com/v18.0/{FB_PAGE_ID}/videos"
     payload = {
@@ -82,7 +97,7 @@ def publish_to_facebook(video_url, description):
             print(f"✅ [Facebook] Successfully published to Khalid Logic! (Video ID: {res['id']})")
             return True
         else:
-            print("❌ [Facebook] Publish failed:", res)
+            print(f"❌ [Facebook] Publish failed: {res}")
             return False
     except Exception as e:
         print(f"❌ [Facebook] Fatal connection error: {e}")
