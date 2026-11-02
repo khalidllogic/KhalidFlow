@@ -1,8 +1,7 @@
 import os
+import shutil
 import time
 import requests
-import random
-import string
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -18,31 +17,27 @@ IG_USER_ID = get_secret('IG_USER_ID')
 FB_PAGE_TOKEN = get_secret('FB_PAGE_TOKEN')
 FB_PAGE_ID = get_secret('FB_PAGE_ID')
 
+# رابط تطبيقك الأساسي على Streamlit
+APP_URL = "https://khaledflowapp.streamlit.app"
+
 def upload_to_cloud_buffer(file_path):
-    print("☁️ Uploading video to true direct host (Filebin)...")
+    print("☁️ Hosting video directly on our Streamlit Server...")
     
-    # توليد حاوية عشوائية آمنة
-    bin_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    # تنظيف اسم الملف من المسافات
-    filename = os.path.basename(file_path).replace(" ", "_")
-    url = f"https://filebin.net/{bin_id}/{filename}"
-    
-    try:
-        with open(file_path, 'rb') as f:
-            # نجبر السيرفر على اعتبار الملف فيديو نقي ليقبله عنكبوت ميتا
-            headers = {"Content-Type": "video/mp4"}
-            res = requests.post(url, data=f, headers=headers)
+    # التأكد من وجود المجلد الذي سيسمح Streamlit بقراءته
+    if not os.path.exists('static'):
+        os.makedirs('static')
         
-        if res.status_code == 201:
-            direct_url = f"https://filebin.net/{bin_id}/{filename}"
-            print(f"✅ True Direct Cloud link secured: {direct_url}")
-            return direct_url
-        else:
-            print(f"❌ Filebin upload failed: {res.status_code} - {res.text}")
-            return None
-    except Exception as e:
-        print(f"❌ Cloud connection error: {e}")
-        return None
+    filename = os.path.basename(file_path).replace(" ", "_")
+    static_path = os.path.join('static', filename)
+    
+    # نسخ الفيديو من الذاكرة المؤقتة إلى المجلد العام (static)
+    shutil.copy(file_path, static_path)
+    
+    # توليد الرابط المباشر من سيرفرك (Streamlit يقدمه عبر المسار /app/static/)
+    direct_url = f"{APP_URL}/app/static/{filename}"
+    
+    print(f"✅ Hosted internally: {direct_url}")
+    return direct_url
 
 def publish_to_instagram(video_url, caption):
     import streamlit as st
@@ -62,7 +57,7 @@ def publish_to_instagram(video_url, caption):
     res = requests.post(container_url, data=payload).json()
     
     if 'id' not in res:
-        st.error(f"⛔ رفض من ميتا (Instagram API Error): {res}") # هذا السطر سيفضح الخطأ في جوالك
+        st.error(f"⛔ رفض من ميتا (Instagram API Error): {res}")
         return False
         
     creation_id = res['id']
@@ -75,7 +70,7 @@ def publish_to_instagram(video_url, caption):
         status = status_res.get('status_code')
         if status == 'FINISHED': break
         if status == 'ERROR':
-            st.error(f"⛔ خطأ أثناء المعالجة (Processing Error): {status_res}") # فضح الخطأ هنا أيضاً
+            st.error(f"⛔ خطأ أثناء المعالجة (Processing Error): {status_res}")
             return False
             
     pub_url = f"https://graph.facebook.com/v18.0/{IG_USER_ID}/media_publish"
