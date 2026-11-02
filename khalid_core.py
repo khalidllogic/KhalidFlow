@@ -38,8 +38,9 @@ def upload_to_cloud_buffer(file_path):
         print(f"❌ Cloud connection error: {e}")
         return None
 def publish_to_instagram(video_url, caption):
+    import streamlit as st
     if not IG_USER_ID or not ACCESS_TOKEN:
-        print("❌ Fatal Error: IG_USER_ID or META_ACCESS_TOKEN is missing!")
+        st.error("❌ Fatal Error: IG_USER_ID or META_ACCESS_TOKEN is missing in secrets!")
         return False
         
     print("🚀 [Instagram] Connecting to Meta API...")
@@ -54,7 +55,7 @@ def publish_to_instagram(video_url, caption):
     res = requests.post(container_url, data=payload).json()
     
     if 'id' not in res:
-        print(f"❌ Failed to create container: {res}")
+        st.error(f"⛔ رفض من ميتا (Instagram API Error): {res}") # هذا السطر سيفضح الخطأ في جوالك
         return False
         
     creation_id = res['id']
@@ -65,20 +66,19 @@ def publish_to_instagram(video_url, caption):
         time.sleep(5)
         status_res = requests.get(status_url).json()
         status = status_res.get('status_code')
-        print(f"   - Server status: {status}")
         if status == 'FINISHED': break
         if status == 'ERROR':
-            print(f"❌ Meta processing error: {status_res}")
+            st.error(f"⛔ خطأ أثناء المعالجة (Processing Error): {status_res}") # فضح الخطأ هنا أيضاً
             return False
             
-    print("🎉 Sending final publish command to Instagram...")
     pub_url = f"https://graph.facebook.com/v18.0/{IG_USER_ID}/media_publish"
     pub_res = requests.post(pub_url, data={'creation_id': creation_id, 'access_token': ACCESS_TOKEN}).json()
     
     if 'id' in pub_res:
-        print(f"✅ Instagram publish complete! (Post ID: {pub_res['id']})")
         return True
-    return False
+    else:
+        st.error(f"⛔ خطأ النشر النهائي: {pub_res}")
+        return False
 
 def publish_to_facebook(video_url, description):
     if not FB_PAGE_ID or not FB_PAGE_TOKEN:
