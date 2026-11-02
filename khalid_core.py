@@ -21,6 +21,7 @@ FB_PAGE_ID = get_secret('FB_PAGE_ID')
 APP_URL = "https://khaledflowapp.streamlit.app"
 
 def upload_to_cloud_buffer(file_path):
+    import streamlit as st
     print("☁️ Uploading video to raw bot-friendly host (Catbox.moe)...")
     url = "https://catbox.moe/user/api.php"
     
@@ -30,15 +31,17 @@ def upload_to_cloud_buffer(file_path):
             files = {'fileToUpload': f}
             res = requests.post(url, data=payload, files=files)
         
-        # Catbox يرجع الرابط المباشر كنص عادي (Text)
         if res.status_code == 200 and "catbox.moe" in res.text:
             direct_url = res.text.strip()
             print(f"✅ Pure Raw Cloud link secured: {direct_url}")
             return direct_url
         else:
-            print(f"❌ Catbox upload failed: {res.text}")
+            error_msg = f"Catbox Rejected: {res.status_code} - {res.text}"
+            st.error(f"❌ {error_msg}")
+            print(error_msg)
             return None
     except Exception as e:
+        st.error(f"❌ Cloud Crash: {str(e)}")
         print(f"❌ Cloud connection error: {e}")
         return None
 
