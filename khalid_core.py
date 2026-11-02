@@ -21,23 +21,26 @@ FB_PAGE_ID = get_secret('FB_PAGE_ID')
 APP_URL = "https://khaledflowapp.streamlit.app"
 
 def upload_to_cloud_buffer(file_path):
-    print("☁️ Hosting video directly on our Streamlit Server...")
+    print("☁️ Uploading video to raw bot-friendly host (Catbox.moe)...")
+    url = "https://catbox.moe/user/api.php"
     
-    # التأكد من وجود المجلد الذي سيسمح Streamlit بقراءته
-    if not os.path.exists('static'):
-        os.makedirs('static')
+    try:
+        with open(file_path, 'rb') as f:
+            payload = {'reqtype': 'fileupload'}
+            files = {'fileToUpload': f}
+            res = requests.post(url, data=payload, files=files)
         
-    filename = os.path.basename(file_path).replace(" ", "_")
-    static_path = os.path.join('static', filename)
-    
-    # نسخ الفيديو من الذاكرة المؤقتة إلى المجلد العام (static)
-    shutil.copy(file_path, static_path)
-    
-    # توليد الرابط المباشر من سيرفرك (Streamlit يقدمه عبر المسار /app/static/)
-    direct_url = f"{APP_URL}/app/static/{filename}"
-    
-    print(f"✅ Hosted internally: {direct_url}")
-    return direct_url
+        # Catbox يرجع الرابط المباشر كنص عادي (Text)
+        if res.status_code == 200 and "catbox.moe" in res.text:
+            direct_url = res.text.strip()
+            print(f"✅ Pure Raw Cloud link secured: {direct_url}")
+            return direct_url
+        else:
+            print(f"❌ Catbox upload failed: {res.text}")
+            return None
+    except Exception as e:
+        print(f"❌ Cloud connection error: {e}")
+        return None
 
 def publish_to_instagram(video_url, caption):
     import streamlit as st
