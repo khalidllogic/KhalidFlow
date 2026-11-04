@@ -1,54 +1,57 @@
 import os
-import shutil
 import time
 import requests
 import streamlit as st
 from dotenv import load_dotenv
+import cloudinary
+import cloudinary.uploader
 
 # تحميل المتغيرات المحلية (في اللابتوب)
 load_dotenv()
 
-# هندسة جلب الأسرار: البحث في اللابتوب أولاً، ثم في سحابة Streamlit
+# هندسة جلب الأسرار
 def get_secret(key):
     return os.getenv(key) or st.secrets.get(key)
 
+# مفاتيح ميتا
 ACCESS_TOKEN = get_secret('META_ACCESS_TOKEN')
 IG_USER_ID = get_secret('IG_USER_ID')
 FB_PAGE_TOKEN = get_secret('FB_PAGE_TOKEN')
 FB_PAGE_ID = get_secret('FB_PAGE_ID')
 
-# رابط تطبيقك الأساسي على Streamlit
-APP_URL = "https://khaledflowapp.streamlit.app"
-
 def upload_to_cloud_buffer(file_path):
-    import streamlit as st
-    print("☁️ Uploading video to raw bot-friendly host (Catbox.moe)...")
-    url = "https://catbox.moe/user/api.php"
+    print("☁️ Uploading video to Enterprise CDN (Cloudinary)...")
     
     try:
-        with open(file_path, 'rb') as f:
-            payload = {'reqtype': 'fileupload'}
-            files = {'fileToUpload': f}
-            res = requests.post(url, data=payload, files=files)
+        # إعداد الاتصال الآمن مع Cloudinary
+        cloudinary.config( 
+            cloud_name = get_secret('CLOUDINARY_CLOUD_NAME'), 
+            api_key = get_secret('CLOUDINARY_API_KEY'), 
+            api_secret = get_secret('CLOUDINARY_API_SECRET'),
+            secure = True
+        )
         
-        if res.status_code == 200 and "catbox.moe" in res.text:
-            direct_url = res.text.strip()
-            print(f"✅ Pure Raw Cloud link secured: {direct_url}")
-            return direct_url
-        else:
-            error_msg = f"Catbox Rejected: {res.status_code} - {res.text}"
-            st.error(f"❌ {error_msg}")
-            print(error_msg)
-            return None
+        # الرفع المباشر وتحديد نوع الملف كفيديو
+        response = cloudinary.uploader.upload(
+            file_path, 
+            resource_type="video",
+            folder="khalidflow_reels"
+        )
+        
+        # استخراج الرابط المباشر المشفر (HTTPS)
+        direct_url = response.get('secure_url')
+        print(f"✅ Enterprise Cloud link secured: {direct_url}")
+        return direct_url
+        
     except Exception as e:
-        st.error(f"❌ Cloud Crash: {str(e)}")
-        print(f"❌ Cloud connection error: {e}")
+        error_msg = f"Cloudinary Upload Failed: {str(e)}"
+        st.error(f"❌ {error_msg}")
+        print(error_msg)
         return None
 
 def publish_to_instagram(video_url, caption):
-    import streamlit as st
     if not IG_USER_ID or not ACCESS_TOKEN:
-        st.error("❌ Fatal Error: IG_USER_ID or META_ACCESS_TOKEN is missing in secrets!")
+        st.error("❌ Fatal Error: IG_USER_ID or META_ACCESS_TOKEN is missing!")
         return False
         
     print("🚀 [Instagram] Connecting to Meta API...")
