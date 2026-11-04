@@ -54,10 +54,11 @@ def logout():
 #    as a Markdown code block.
 # ==========================================
 def render_html(content):
-    st.markdown(
-        textwrap.dedent(content).strip(),
-        unsafe_allow_html=True,
-    )
+    """Render trusted app-owned HTML/CSS without Markdown code-block parsing.
+
+    Requires Streamlit 1.33.0 or newer (st.html).
+    """
+    st.html(textwrap.dedent(content).strip())
 
 
 # ==========================================
